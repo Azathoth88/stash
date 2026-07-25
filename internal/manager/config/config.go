@@ -46,6 +46,18 @@ const (
 	Password            = "password"
 	MaxSessionAge       = "max_session_age"
 
+	// OIDC (OpenID Connect) single sign-on configuration
+	OIDCClientID      = "oidc.client_id"
+	OIDCClientSecret  = "oidc.client_secret"
+	OIDCIssuer        = "oidc.issuer"
+	OIDCRedirectURL   = "oidc.redirect_url"
+	OIDCScopes        = "oidc.scopes"
+	OIDCUsernameClaim = "oidc.username_claim"
+	OIDCGroupsClaim   = "oidc.groups_claim"
+	OIDCAllowedGroups = "oidc.allowed_groups"
+
+	OIDCUsernameClaimDefault = "sub"
+
 	SignedURLExpiry        = "signed_url_expiry"
 	signedURLExpiryDefault = 60 * 60 * 4 // 4 hours in seconds
 
@@ -1218,6 +1230,62 @@ func (i *Config) HasCredentials() bool {
 	pwHash := i.getString(Password)
 
 	return username != "" && pwHash != ""
+}
+
+// OIDCConfig holds the resolved OpenID Connect configuration.
+type OIDCConfig struct {
+	// ClientID is the OAuth2 client identifier registered with the provider.
+	ClientID string
+	// ClientSecret is the OAuth2 client secret. May be empty for public
+	// clients, in which case PKCE is relied upon.
+	ClientSecret string
+	// Issuer is the OIDC issuer URL used for discovery
+	// (<issuer>/.well-known/openid-configuration).
+	Issuer string
+	// RedirectURL is the absolute callback URL registered with the provider.
+	// If empty it is derived from the incoming request.
+	RedirectURL string
+	// Scopes are the OAuth2 scopes to request in addition to "openid".
+	Scopes []string
+	// UsernameClaim is the ID token claim used as the stash username.
+	UsernameClaim string
+	// GroupsClaim is the ID token claim that contains the user's groups.
+	GroupsClaim string
+	// AllowedGroups, when non-empty, restricts login to users that are a
+	// member of at least one of the listed groups.
+	AllowedGroups []string
+}
+
+// IsValid returns true if the minimum required OIDC configuration is present.
+func (o OIDCConfig) IsValid() bool {
+	return o.ClientID != "" && o.Issuer != ""
+}
+
+// GetUsernameClaim returns the configured username claim, defaulting to "sub".
+func (o OIDCConfig) GetUsernameClaim() string {
+	if o.UsernameClaim == "" {
+		return OIDCUsernameClaimDefault
+	}
+	return o.UsernameClaim
+}
+
+// GetOIDCConfig returns the OpenID Connect single sign-on configuration.
+func (i *Config) GetOIDCConfig() OIDCConfig {
+	return OIDCConfig{
+		ClientID:      i.getString(OIDCClientID),
+		ClientSecret:  i.getString(OIDCClientSecret),
+		Issuer:        i.getString(OIDCIssuer),
+		RedirectURL:   i.getString(OIDCRedirectURL),
+		Scopes:        i.getStringSlice(OIDCScopes),
+		UsernameClaim: i.getString(OIDCUsernameClaim),
+		GroupsClaim:   i.getString(OIDCGroupsClaim),
+		AllowedGroups: i.getStringSlice(OIDCAllowedGroups),
+	}
+}
+
+// GetOIDCEnabled returns true if OIDC single sign-on is configured.
+func (i *Config) GetOIDCEnabled() bool {
+	return i.GetOIDCConfig().IsValid()
 }
 
 func hashPassword(password string) string {

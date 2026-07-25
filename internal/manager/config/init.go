@@ -43,6 +43,15 @@ var (
 		"cache":         Cache,
 		"stash":         Stash,
 		"ui":            UILocation,
+
+		// OIDC single sign-on (list-valued keys such as scopes and allowed
+		// groups must be set via the config file)
+		"oidc_client_id":      OIDCClientID,
+		"oidc_client_secret":  OIDCClientSecret,
+		"oidc_issuer":         OIDCIssuer,
+		"oidc_redirect_url":   OIDCRedirectURL,
+		"oidc_username_claim": OIDCUsernameClaim,
+		"oidc_groups_claim":   OIDCGroupsClaim,
 	}
 )
 

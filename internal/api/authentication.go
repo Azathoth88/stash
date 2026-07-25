@@ -18,7 +18,13 @@ import (
 
 func allowUnauthenticated(r *http.Request) bool {
 	// #2715 - allow access to UI files
-	return strings.HasPrefix(r.URL.Path, loginEndpoint) || r.URL.Path == logoutEndpoint || r.URL.Path == "/css" || strings.HasPrefix(r.URL.Path, "/assets")
+	return strings.HasPrefix(r.URL.Path, loginEndpoint) || r.URL.Path == logoutEndpoint || strings.HasPrefix(r.URL.Path, "/oidc/") || r.URL.Path == "/css" || strings.HasPrefix(r.URL.Path, "/assets")
+}
+
+// isAuthRequired returns true if the server requires authentication, either via
+// configured password credentials or OIDC single sign-on.
+func isAuthRequired(c *config.Config) bool {
+	return c.HasCredentials() || c.GetOIDCEnabled()
 }
 
 // authenticateSignedRequest checks if the request is a valid signed media request.
@@ -104,7 +110,7 @@ func authenticateHandler() func(http.Handler) http.Handler {
 
 			// reject connections from the public internet if authentication is not configured
 			// don't apply for new systems
-			if !c.IsNewSystem() && !c.HasCredentials() {
+			if !c.IsNewSystem() && !isAuthRequired(c) {
 				requestIP, err := getRequestIPFromCtx(ctx)
 				if err != nil {
 					logger.Errorf("error getting request IP: %v", err)
@@ -118,7 +124,7 @@ func authenticateHandler() func(http.Handler) http.Handler {
 				}
 			}
 
-			if c.HasCredentials() {
+			if isAuthRequired(c) {
 				// authentication is required
 				if userID == "" && !allowUnauthenticated(r) {
 					// if graphql or a non-webpage was requested, we just return a forbidden error
@@ -159,7 +165,7 @@ func authenticateHandler() func(http.Handler) http.Handler {
 func checkAllowPublicWithoutAuth(c *config.Config, requestIP net.IP) error {
 	// reject connections from the public internet if authentication is not configured
 	// don't apply for new systems
-	if c.IsNewSystem() || c.HasCredentials() {
+	if c.IsNewSystem() || isAuthRequired(c) {
 		return nil
 	}
 

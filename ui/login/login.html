@@ -16,6 +16,7 @@
             username: "Username",
             password: "Password",
             login: "Login",
+            login_with_sso: "Login with SSO",
             invalid_credentials: "Invalid credentials",
             internal_error: "Unexpected internal error. See logs for more details"
         };
@@ -52,6 +53,7 @@
 <body class="login">
     <div class="dialog">
         <div class="card">
+            {{if .Password}}
             <form action="login" method="POST" onsubmit="event.preventDefault(); login();">
                 <div class="form-group">
                     <label for="username"><h6 id="username-heading">Username</h6></label>
@@ -71,16 +73,33 @@
                     <input id="login-button" class="btn btn-primary" type="submit" value="Login">
                 </div>
             </form>
+            {{else}}
+            <div class="login-error">
+                {{.Error}}
+            </div>
+            {{end}}
+            {{if .OIDC}}
+            <div class="oidc-login">
+                <a id="oidc-login-button" class="btn btn-primary" href="{{.OIDCLoginURL}}">Login with SSO</a>
+            </div>
+            {{end}}
         </div>
     </div>
 
 </body>
 
 <script>
-    document.getElementById("username-heading").innerText = localeStrings.username;
-    document.getElementById("password-heading").innerText = localeStrings.password;
-    document.getElementById("username").placeholder = localeStrings.username;
-    document.getElementById("password").placeholder = localeStrings.password;
-    document.getElementById("login-button").value = localeStrings.login;
+    var usernameHeading = document.getElementById("username-heading");
+    if (usernameHeading) {
+        usernameHeading.innerText = localeStrings.username;
+        document.getElementById("password-heading").innerText = localeStrings.password;
+        document.getElementById("username").placeholder = localeStrings.username;
+        document.getElementById("password").placeholder = localeStrings.password;
+        document.getElementById("login-button").value = localeStrings.login;
+    }
+    var oidcButton = document.getElementById("oidc-login-button");
+    if (oidcButton) {
+        oidcButton.innerText = localeStrings.login_with_sso;
+    }
 </script>
 </html>

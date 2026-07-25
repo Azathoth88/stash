@@ -116,6 +116,16 @@ button, input {
     padding-bottom: 1rem;
 }
 
+.oidc-login {
+    margin-top: 1rem;
+}
+
+.oidc-login .btn {
+    display: block;
+    width: 100%;
+    text-decoration: none;
+}
+
 @media (max-width: 576px) {
     .card {
         width: 100%;
