@@ -1,0 +1,140 @@
+# Baut das Stash-Image mit OIDC-Unterstützung und veröffentlicht es auf der
+# GitHub Container Registry (GHCR), damit vibOS es über das Paketzentrum
+# installieren kann.
+#
+# WICHTIG — einmalige Nacharbeit nach dem ERSTEN erfolgreichen Lauf:
+#   Das Package wird von GitHub standardmäßig PRIVAT angelegt. Der vibOS-Agent
+#   ruft `podman pull <image>` ohne Registry-Credentials auf und kann private
+#   Images nicht ziehen. Deshalb einmalig:
+#     GitHub → Profil → Packages → "stash" → Package settings
+#       → Danger Zone → Change visibility → Public
+#   Danach greift jeder weitere Push automatisch, ohne erneute Umstellung.
+#
+# Warum ein eigener Workflow statt der bestehenden build.yml:
+#   build.yml cross-kompiliert sieben Plattformen über ein Compiler-Image und
+#   pusht Docker nur für github.repository == 'stashapp/stash'. Für den Fork
+#   brauchen wir genau ein Linux/amd64-Image. docker/build/x86_64/Dockerfile ist
+#   dafür self-contained (baut UI + Backend selbst in Multi-Stage), also genügt
+#   ein einzelner buildx-Aufruf ohne Artefakt-Verkettung.
+
+name: vibOS-Image (GHCR)
+
+on:
+  push:
+    branches:
+      - claude/oidc-support-integration-ip3ccl
+    # Reine Doku-Änderungen lösen keinen ~20-Minuten-Build aus.
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+concurrency:
+  group: vibos-image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # git describe braucht die volle History; Tags holen wir gleich
+          # separat vom Upstream (der Fork selbst hat keine).
+          fetch-depth: 0
+
+      - name: Image-Name normalisieren
+        # GHCR verlangt einen kleingeschriebenen Pfad, github.repository trägt
+        # aber die Original-Schreibweise ("Azathoth88/stash").
+        run: echo "IMAGE=${REGISTRY}/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Build-Info ermitteln
+        id: info
+        # Der Fork hat keine eigenen Tags, deshalb holen wir die Upstream-Tags
+        # dazu — dann liefert git describe dieselbe Versionsbasis wie ein
+        # offizieller Dev-Build (z. B. v0.31.1-42-gdc7a58b). Schlägt das fehl
+        # (Netz, Rate-Limit), fällt der Build auf einen sprechenden Ersatzwert
+        # zurück statt abzubrechen.
+        run: |
+          set -euo pipefail
+          git remote add upstream https://github.com/stashapp/stash.git 2>/dev/null || true
+          if ! git fetch --tags --quiet upstream 2>/dev/null; then
+            echo "::warning::Upstream-Tags nicht abrufbar — nutze Fallback-Version"
+          fi
+          GITHASH="$(git rev-parse --short HEAD)"
+          if ! VERSION="$(git describe --tags --exclude latest_develop 2>/dev/null)"; then
+            VERSION="v0.0.0-oidc-${GITHASH}"
+            echo "::warning::Kein Tag gefunden — Version=${VERSION}"
+          fi
+          echo "githash=${GITHASH}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}"  >> "$GITHUB_OUTPUT"
+          echo "Build ${VERSION} (${GITHASH})"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadaten und Tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # :oidc ist der bewegliche Tag, auf den das vibOS-Manifest zeigt —
+          # ein neuer Push ändert den Digest, vibOS erkennt das Update von
+          # selbst (Resolved-Version-Tracking). Die sha-Tags bleiben als
+          # nachvollziehbare Rückfallpunkte bestehen.
+          tags: |
+            type=raw,value=oidc
+            type=sha,prefix=oidc-,format=short
+          labels: |
+            org.opencontainers.image.title=Stash (OIDC)
+            org.opencontainers.image.description=Stash mit OpenID-Connect-Anmeldung für vibOS
+            org.opencontainers.image.version=${{ steps.info.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Image bauen und pushen
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/build/x86_64/Dockerfile
+          # Die Ziel-NAS ist x86_64. Ein zusätzlicher arm64-Build liefe unter
+          # QEMU-Emulation und würde die Laufzeit vervielfachen.
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            GITHASH=${{ steps.info.outputs.githash }}
+            STASH_VERSION=${{ steps.info.outputs.version }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Ohne Cache dauert jeder Lauf voll durch (pnpm-Install, UI-Bundle,
+          # CGO-Go-Build). Der GHA-Cache drückt Folge-Builds deutlich.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Zusammenfassung
+        run: |
+          {
+            echo "### vibOS-Image gebaut"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Version | \`${{ steps.info.outputs.version }}\` |"
+            echo "| Commit | \`${{ steps.info.outputs.githash }}\` |"
+            echo "| Image | \`${{ env.IMAGE }}:oidc\` |"
+            echo ""
+            echo "Falls dies der erste Lauf war: Package unter"
+            echo "**Packages → stash → Package settings → Change visibility**"
+            echo "auf **Public** stellen, sonst kann vibOS es nicht ziehen."
+          } >> "$GITHUB_STEP_SUMMARY"
