@@ -1284,6 +1284,7 @@
   },
   "login": {
     "login": "Login",
+    "login_with_sso": "Login with SSO",
     "username": "Username",
     "password": "Password",
     "invalid_credentials": "Invalid username or password",

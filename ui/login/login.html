@@ -99,7 +99,11 @@
     }
     var oidcButton = document.getElementById("oidc-login-button");
     if (oidcButton) {
-        oidcButton.innerText = localeStrings.login_with_sso;
+        // login/locale replaces localeStrings wholesale with the generated
+        // per-language block, so any key missing from a translation resolves to
+        // undefined. Only en-GB carries login_with_sso today — the other 40
+        // locales would render the button as "undefined" without this fallback.
+        oidcButton.innerText = localeStrings.login_with_sso || "Login with SSO";
     }
 </script>
 </html>
