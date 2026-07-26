@@ -2,13 +2,15 @@
 # GitHub Container Registry (GHCR), damit vibOS es über das Paketzentrum
 # installieren kann.
 #
-# WICHTIG — einmalige Nacharbeit nach dem ERSTEN erfolgreichen Lauf:
-#   Das Package wird von GitHub standardmäßig PRIVAT angelegt. Der vibOS-Agent
-#   ruft `podman pull <image>` ohne Registry-Credentials auf und kann private
-#   Images nicht ziehen. Deshalb einmalig:
-#     GitHub → Profil → Packages → "stash" → Package settings
-#       → Danger Zone → Change visibility → Public
-#   Danach greift jeder weitere Push automatisch, ohne erneute Umstellung.
+# Zur Sichtbarkeit des Packages:
+#   GitHub legt es standardmäßig PRIVAT an — das ist in Ordnung und muss nicht
+#   geändert werden. Podman liest auf der vibOS-Seite beim Pull automatisch den
+#   Auth-Store (/root/.docker/config.json), in dem die ghcr.io-Zugangsdaten
+#   liegen; ein --authfile-Parameter ist dafür nicht nötig. Verifiziert durch
+#   den Pull eines nicht lokal vorhandenen privaten Tags.
+#   Voraussetzung ist also ein GÜLTIGER Eintrag in diesem Auth-Store: läuft das
+#   Token ab, scheitern Installation und Update mit einem
+#   Authentifizierungsfehler von ghcr.io.
 #
 # Warum ein eigener Workflow statt der bestehenden build.yml:
 #   build.yml cross-kompiliert sieben Plattformen über ein Compiler-Image und
@@ -134,7 +136,7 @@ jobs:
             echo "| Commit | \`${{ steps.info.outputs.githash }}\` |"
             echo "| Image | \`${{ env.IMAGE }}:oidc\` |"
             echo ""
-            echo "Falls dies der erste Lauf war: Package unter"
-            echo "**Packages → stash → Package settings → Change visibility**"
-            echo "auf **Public** stellen, sonst kann vibOS es nicht ziehen."
+            echo "Package-Sichtbarkeit muss NICHT geaendert werden &mdash;"
+            echo "Podman zieht das private Image ueber den Auth-Store"
+            echo "(/root/.docker/config.json) auf der vibOS-Seite."
           } >> "$GITHUB_STEP_SUMMARY"

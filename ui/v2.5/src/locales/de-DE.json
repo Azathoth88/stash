@@ -1569,6 +1569,7 @@
     "eta": "Edited to add",
     "login": {
         "login": "Login",
+        "login_with_sso": "Mit SSO anmelden",
         "internal_error": "Unvorhergesehener interner Fehler. Weitere Details in den Logs",
         "password": "Passwort",
         "invalid_credentials": "Ungültiger Nutzername oder Passwort",
