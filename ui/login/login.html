@@ -53,6 +53,12 @@
 <body class="login">
     <div class="dialog">
         <div class="card">
+            {{if .OIDC}}
+            <div class="login-brand">
+                <div class="login-brand__mark" role="img" aria-label="Stash"></div>
+                <div class="login-brand__name">Stash</div>
+            </div>
+            {{end}}
             {{if .Password}}
             <form action="login" method="POST" onsubmit="event.preventDefault(); login();">
                 <div class="form-group">

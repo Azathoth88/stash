@@ -140,3 +140,32 @@ button, input {
         width: 100%;
     }
 }
+
+/* Markenkopf: wird nur im SSO-Fall gerendert (siehe login.html).
+   Das Logo ist als Data-URI eingebettet, weil die statischen Assets des
+   Haupt-UI (/stash_icon.svg) hinter der Authentifizierung liegen und auf der
+   Login-Seite mit 401 beantwortet würden. Enthaelt nur die Bildmarke, ohne die
+   dunkle Hintergrundflaeche des App-Icons. */
+.login-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* haelt die sonst sehr schmale Karte auf einer ruhigen Mindestbreite */
+    min-width: 200px;
+    margin-bottom: 1.5rem;
+}
+
+.login-brand__mark {
+    width: 64px;
+    height: 64px;
+    background: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 256 256%22%3E%3Cpath fill=%22%23a08069%22 transform=%22translate(-180.90625,-335.34375)%22 d=%22m 308.68104,408.60174 -64.43628,19.31216 -12.3475,16.08936 56.07724,20.1486 16.26431,-20.32082 4.27506,1.86972 4.27504,-1.86972 16.93304,20.83745 55.5757,-20.32081 -12.99234,-17.44244 z m 0,5.26472 45.06719,13.70301 -45.06719,13.03879 -45.54484,-13.55541 z m 3.53469,40.2972 -0.16718,61.30689 59.85074,-25.24112 0.16719,-34.36826 -44.87612,15.22831 -13.15954,-16.92582 z m -8.62176,0.17222 -13.15953,16.92581 -44.87611,-15.2283 0.16717,34.36825 59.85075,25.24111 -0.16717,-61.30687 z%22/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.login-brand__name {
+    margin-top: .625rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    line-height: 1;
+    letter-spacing: .01em;
+    color: #f5f8fa;
+}
