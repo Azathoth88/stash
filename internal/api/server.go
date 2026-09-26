@@ -232,6 +232,11 @@ func Initialize() (*Server, error) {
 	r.Post(loginEndpoint, handleLoginPost())
 	r.Get(logoutEndpoint, handleLogout())
 	r.Get(loginLocaleEndpoint, handleLoginLocale(cfg))
+
+	// OIDC single sign-on endpoints
+	oidcProv := &oidcProvider{}
+	r.Get(oidcLoginEndpoint, handleOIDCLogin(oidcProv))
+	r.Get(oidcCallbackEndpoint, handleOIDCCallback(oidcProv))
 	r.HandleFunc(loginEndpoint+"/*", func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, loginEndpoint)
 		w.Header().Set("Cache-Control", "no-cache")
