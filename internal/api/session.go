@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/stashapp/stash/internal/manager"
@@ -32,8 +33,11 @@ func getLoginPage() []byte {
 }
 
 type loginTemplateData struct {
-	URL   string
-	Error string
+	URL          string
+	Error        string
+	Password     bool
+	OIDC         bool
+	OIDCLoginURL string
 }
 
 func serveLoginPage(w http.ResponseWriter, r *http.Request, returnURL string, loginError string) {
@@ -47,8 +51,25 @@ func serveLoginPage(w http.ResponseWriter, r *http.Request, returnURL string, lo
 		return
 	}
 
+	c := config.GetInstance()
+	oidcEnabled := c.GetOIDCEnabled()
+
+	// build the OIDC login URL, preserving the return URL
+	oidcLoginURL := prefix + oidcLoginEndpoint
+	if returnURL != "" {
+		q := make(url.Values)
+		q.Set(returnURLParam, returnURL)
+		oidcLoginURL += "?" + q.Encode()
+	}
+
 	buffer := bytes.Buffer{}
-	err = templ.Execute(&buffer, loginTemplateData{URL: returnURL, Error: loginError})
+	err = templ.Execute(&buffer, loginTemplateData{
+		URL:          returnURL,
+		Error:        loginError,
+		Password:     c.HasCredentials(),
+		OIDC:         oidcEnabled,
+		OIDCLoginURL: oidcLoginURL,
+	})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("error: %s", err), http.StatusInternalServerError)
 		return
@@ -107,7 +128,7 @@ func handleLogin() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		returnURL := r.URL.Query().Get(returnURLParam)
 
-		if !config.GetInstance().HasCredentials() {
+		if !isAuthRequired(config.GetInstance()) {
 			if returnURL != "" {
 				http.Redirect(w, r, returnURL, http.StatusFound)
 			} else {
@@ -117,12 +138,22 @@ func handleLogin() http.HandlerFunc {
 			return
 		}
 
-		serveLoginPage(w, r, returnURL, "")
+		loginError := r.URL.Query().Get(loginErrorParam)
+		serveLoginPage(w, r, returnURL, loginError)
 	}
 }
 
 func handleLoginPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Password login is only permitted when password credentials are
+		// configured. Without this guard, ValidateCredentials would treat an
+		// unconfigured password as "no authentication required" and allow the
+		// password form to bypass OIDC-only authentication.
+		if !config.GetInstance().HasCredentials() {
+			http.Error(w, "Password login is not enabled", http.StatusUnauthorized)
+			return
+		}
+
 		err := manager.GetInstance().SessionStore.Login(w, r)
 		if err != nil {
 			// always log the error
@@ -153,9 +184,9 @@ func handleLogout() http.HandlerFunc {
 			return
 		}
 
-		// redirect to the login page if credentials are required
+		// redirect to the login page if authentication is required
 		prefix := getProxyPrefix(r)
-		if config.GetInstance().HasCredentials() {
+		if isAuthRequired(config.GetInstance()) {
 			http.Redirect(w, r, prefix+loginEndpoint, http.StatusFound)
 		} else {
 			http.Redirect(w, r, prefix+"/", http.StatusFound)

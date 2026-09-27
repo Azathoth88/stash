@@ -9,8 +9,10 @@ WORKDIR /stash
 COPY Makefile /stash/
 COPY ./graphql /stash/graphql/
 COPY ./ui /stash/ui/
-# pnpm install with npm
-RUN npm install -g pnpm
+# pnpm install with npm, pinned to the version in package.json's packageManager.
+# An unpinned install pulls the latest pnpm, which tries to switch to the pinned
+# version via @pnpm/exe and fails on Alpine (no linux-x64-musl binary).
+RUN npm install -g "$(node -p "require('./ui/v2.5/package.json').packageManager.split('+')[0]")"
 RUN make pre-ui
 RUN make generate-ui
 ARG GITHASH
