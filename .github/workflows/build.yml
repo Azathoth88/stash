@@ -283,12 +283,16 @@ jobs:
         name: stash-ui.zip
         path: dist/stash-ui.zip
 
+    # Fork guard (same pattern as the Docker steps below): tagging and GitHub
+    # releases are upstream's distribution channel. In a fork the token is
+    # read-only, so these steps failed the whole run with a 403. The fork ships
+    # its own GHCR image via vibos-image.yml instead.
     - name: Update latest_develop tag
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+      if: ${{ github.repository == 'stashapp/stash' && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
       run: git tag -f latest_develop; git push -f --tags
 
     - name: Development Release
-      if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
+      if: ${{ github.repository == 'stashapp/stash' && github.event_name == 'push' && github.ref == 'refs/heads/develop' }}
       uses: marvinpinto/action-automatic-releases@v1.1.2
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -310,7 +314,7 @@ jobs:
     - name: Master release
       # NOTE: this isn't perfect, but should cover most scenarios
       # DON'T create tag names starting with "v" if they are not stable releases
-      if: ${{ github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v') }}
+      if: ${{ github.repository == 'stashapp/stash' && github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v') }}
       uses: WithoutPants/github-release@v2.0.4
       with:
         token: "${{ secrets.GITHUB_TOKEN }}"
