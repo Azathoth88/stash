@@ -23,8 +23,10 @@ name: vibOS-Image (GHCR)
 
 on:
   push:
+    # Seit PR #1 (OIDC-Branch in develop gemergt) ist develop die einzige
+    # Quelle des :oidc-Images, auf das das vibOS-Manifest zeigt.
     branches:
-      - claude/oidc-support-integration-ip3ccl
+      - develop
     # Reine Doku-Änderungen lösen keinen ~20-Minuten-Build aus.
     paths-ignore:
       - '**.md'
