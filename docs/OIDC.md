@@ -20,6 +20,25 @@ OIDC is configured through the stash `config.yml` file under the `oidc` key, or
 via environment variables. At minimum an **issuer** and a **client ID** are
 required.
 
+There are no OIDC settings in the web interface. Restart stash after changing
+either the config file or the environment variables. When a key is set in both
+places, the environment variable wins.
+
+### Where is `config.yml`?
+
+- **Docker:** the image sets `STASH_CONFIG_FILE=/root/.stash/config.yml`. On
+  the host the file lives in the folder mounted to `/root/.stash` (for the
+  sample `docker/production/docker-compose.yml` that is `./config/config.yml`).
+  To find the folder of a running container:
+  `docker inspect <container> --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'`
+  (or `podman inspect` with Podman).
+- **Native install:** the first file found of `config.yml` in the working
+  directory and `~/.stash/config.yml`.
+- **Custom:** the path given via `--config` or `STASH_CONFIG_FILE`.
+
+The file is written by the setup wizard on first start; complete it once before
+adding the `oidc` section.
+
 Register a client with your provider and set its redirect URI to:
 
 ```

@@ -101,7 +101,26 @@ Note the **issuer URL**, the **client ID** and, for confidential clients, the **
 
 #### 2. Configure Stash
 
-Add an `oidc` section to your `config.yml`. Only `issuer` and `client_id` are required:
+> [!important]
+> OIDC cannot be configured in the Stash web interface. Use either `config.yml` or environment variables, and restart Stash after every change.
+
+**Where is `config.yml`?**
+
+| How Stash runs | Location |
+| --- | --- |
+| Docker (`stashapp/stash` or `ghcr.io/azathoth88/stash:oidc`) | `/root/.stash/config.yml` inside the container. On the host it is in the folder mounted to `/root/.stash`, e.g. `./config/config.yml` with the [sample docker-compose.yml](docker/production/docker-compose.yml) |
+| Native install | the first one found: `config.yml` in the working directory, then `~/.stash/config.yml` |
+| Custom location | whatever `--config <path>` or `STASH_CONFIG_FILE` points to |
+
+The file is created by the setup wizard on first start, so run through the setup once before adding the `oidc` section. If you are not sure which host folder a container uses, list its mounts and look for `/root/.stash`:
+
+```
+docker inspect <container> --format '{{range .Mounts}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'
+```
+
+(With Podman, replace `docker` with `podman`. `docker ps` / `podman ps` shows the container name.)
+
+Add an `oidc` section to `config.yml`. Only `issuer` and `client_id` are required:
 
 ```yaml
 oidc:
@@ -118,7 +137,7 @@ oidc:
     - stash-users
 ```
 
-Alternatively, the scalar settings can be set through environment variables, which is handy for Docker. List settings (`scopes`, `allowed_groups`) can only be set in `config.yml`.
+Alternatively, the scalar settings can be set through environment variables, which is handy for Docker. List settings (`scopes`, `allowed_groups`) can only be set in `config.yml`. Both can be combined; an environment variable takes precedence over the same key in `config.yml`.
 
 | Variable | Config key |
 | --- | --- |
@@ -145,7 +164,7 @@ services:
 
 #### 3. Restart and sign in
 
-Restart Stash and open the login page. Click **Login with SSO**, authenticate at your provider, and you are sent back to the page you originally requested.
+Restart Stash (for Docker: `docker compose restart stash`, or recreate the container with `docker compose up -d` after changing environment variables) and open the login page. Click **Login with SSO**, authenticate at your provider, and you are sent back to the page you originally requested.
 
 #### Good to know
 
