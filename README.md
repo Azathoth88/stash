@@ -23,6 +23,9 @@ You can [watch a SFW demo video](https://vimeo.com/545323354) to see it in actio
 
 For further information see [Support & Resources](#support--resources) section.
 
+> [!note]
+> **This fork adds OpenID Connect (OIDC) single sign-on.** Stash can delegate login to an external identity provider such as Authelia, Authentik, Keycloak, Google, Okta or Auth0. See [Single Sign-On with OpenID Connect](#single-sign-on-with-openid-connect-oidc) below.
+
 ## Installing Stash
 
 > [!tip]
@@ -74,6 +77,84 @@ Stash can pull metadata (performers, tags, descriptions, studios, and more) dire
 - All of the above methods of scraping data into Stash are also covered in more detail in our [Guide to Scraping](https://docs.stashapp.cc/beginner-guides/guide-to-scraping/).
 
 <sub>[StashDB](http://stashdb.org) is the canonical instance of our open source metadata API, [stash-box](https://github.com/stashapp/stash-box).</sub>
+
+### Single Sign-On with OpenID Connect (OIDC)
+
+Stash can hand authentication off to any OpenID Connect provider. Once OIDC is configured, the login page shows a **Login with SSO** button.
+
+OIDC works on its own or next to the built-in username/password login:
+
+- **OIDC only:** configure OIDC and leave username/password empty. The password form is hidden and only SSO is offered.
+- **OIDC + password:** configure both, and users can sign in either way.
+
+A configured OIDC provider counts as configured authentication, so the usual protections (such as blocking access from public IP addresses while no authentication is set up) apply.
+
+#### 1. Register Stash with your provider
+
+Create an OIDC client (authorization code flow) in your identity provider and set its redirect URI to:
+
+```
+https://<your-stash-host>/oidc/callback
+```
+
+Note the **issuer URL**, the **client ID** and, for confidential clients, the **client secret**. Public clients without a secret are supported, because Stash always uses PKCE.
+
+#### 2. Configure Stash
+
+Add an `oidc` section to your `config.yml`. Only `issuer` and `client_id` are required:
+
+```yaml
+oidc:
+  issuer: https://auth.example.com
+  client_id: stash
+  client_secret: super-secret                          # omit for public clients
+  redirect_url: https://stash.example.com/oidc/callback  # optional, derived from the request otherwise
+  scopes: [profile, email, groups]                     # "openid" is always added; default: profile, email
+  username_claim: preferred_username                   # default: sub
+
+  # optional: only allow members of these groups
+  groups_claim: groups                                 # default: groups
+  allowed_groups:
+    - stash-users
+```
+
+Alternatively, the scalar settings can be set through environment variables, which is handy for Docker. List settings (`scopes`, `allowed_groups`) can only be set in `config.yml`.
+
+| Variable | Config key |
+| --- | --- |
+| `STASH_OIDC_ISSUER` | `oidc.issuer` |
+| `STASH_OIDC_CLIENT_ID` | `oidc.client_id` |
+| `STASH_OIDC_CLIENT_SECRET` | `oidc.client_secret` |
+| `STASH_OIDC_REDIRECT_URL` | `oidc.redirect_url` |
+| `STASH_OIDC_USERNAME_CLAIM` | `oidc.username_claim` |
+| `STASH_OIDC_GROUPS_CLAIM` | `oidc.groups_claim` |
+
+Example with Docker Compose, using the image this fork publishes to GHCR:
+
+```yaml
+services:
+  stash:
+    image: ghcr.io/azathoth88/stash:oidc
+    environment:
+      STASH_OIDC_ISSUER: https://auth.example.com
+      STASH_OIDC_CLIENT_ID: stash
+      STASH_OIDC_CLIENT_SECRET: super-secret
+      STASH_OIDC_REDIRECT_URL: https://stash.example.com/oidc/callback
+      STASH_OIDC_USERNAME_CLAIM: preferred_username
+```
+
+#### 3. Restart and sign in
+
+Restart Stash and open the login page. Click **Login with SSO**, authenticate at your provider, and you are sent back to the page you originally requested.
+
+#### Good to know
+
+- **Security:** the login flow uses a random `state` (CSRF protection), a `nonce` and PKCE. The ID token signature is verified, and the return URL only accepts local paths to prevent open redirects.
+- **Group restriction:** if `allowed_groups` is set, the user must be in at least one of them. Make sure the provider actually puts the groups claim into the ID token (often by requesting the `groups` scope).
+- **Single-user model:** if password credentials are configured as well, OIDC sessions are bound to the configured username so that features tied to it (for example signed media URLs) keep working.
+- **Reverse proxy:** the redirect URI must exactly match what Stash sends. Behind a proxy, either set `redirect_url` explicitly or make sure `X-Forwarded-Proto`, `X-Forwarded-Prefix` and `Host` are forwarded (or set `external_host`).
+
+Full details are in [docs/OIDC.md](docs/OIDC.md).
 
 ## Support & Resources
 
